@@ -1,0 +1,9 @@
+{
+  "pirotehnika": {"name": "Пиротехника", "price": 27500000, "aliases": ["пиро"]},
+  "inzheneriya": {"name": "Инженерия", "price": 20000000, "aliases": ["инжа"]},
+  "kulinariya": {"name": "Кулинария", "price": 17500000, "aliases": ["кухня"]},
+  "samogonovarenie": {"name": "Самогоноварение", "price": 12500000, "aliases": ["самогон"]},
+  "boepripasy": {"name": "Боеприпасы", "price": 15000000, "aliases": ["бп"]},
+  "syrie_i_materialy": {"name": "Сырье и Материалы", "price": 12500000, "aliases": ["сырье"]},
+  "meditsina": {"name": "Медицина", "price": 12500000, "aliases": ["мед"]}
+}

@@ -1,0 +1,11 @@
+{
+  "filtr": {"name": "Фильтр", "price_per_1k": 300000, "aliases": []},
+  "dorogie_sigarety": {"name": "Дорогие сигареты", "price_per_1k": 500000, "aliases": ["сигареты"]},
+  "ostatki_priborov_shepota": {"name": "Остатки приборов «Шепота»", "price_per_1k": 500000, "aliases": ["шепота", "приборы"]},
+  "zapchasti_pda": {"name": "Запчасти для ПДА", "price_per_1k": 550000, "aliases": ["пда"]},
+  "mednaya_katushka": {"name": "Медная катушка", "price_per_1k": 700000, "aliases": ["катушка"]},
+  "ruka_shnyrya": {"name": "Рука сильного шныря", "price_per_1k": 500000, "aliases": ["шнырь", "рука"]},
+  "loskut_kozhi": {"name": "Лоскут светящейся кожи", "price_per_1k": 550000, "aliases": ["лоскут", "кожа"]},
+  "dragotsennosti": {"name": "Драгоценности", "price_per_1k": 600000, "aliases": ["драги"]},
+  "protoartefakt": {"name": "Протоартефакт", "price_per_1k": 650000, "aliases": ["прота", "прото"]}
+}

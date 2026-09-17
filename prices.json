@@ -1,0 +1,18 @@
+{
+  "prodvinutye_zapchasti": {"name": "Продвинутые запчасти", "price": 0, "item_id": "y3nmw"},
+  "prodvinutye_instrumenty": {"name": "Продвинутые инструменты", "price": 0, "item_id": "4q7pl"},
+  "nabor_komponentov_master": {"name": "Набор компонентов оружия (Мастер)", "price": 0, "item_id": null},
+  "peredavaemiy_uroven_sezona": {"name": "Передаваемый уровень Сезона", "price": 0, "item_id": null},
+  "sezonnyy_propusk": {"name": "Сезонный Пропуск", "price": 0, "item_id": null},
+  "sezonnyy_propusk_50": {"name": "Сезонный Пропуск + 50 уровней", "price": 0, "item_id": null},
+  "protoartefakt": {"name": "Протоартефакт", "price": 0, "item_id": null},
+  "boevoy_nabor": {"name": "Боевой набор", "price": 0, "item_id": null},
+  "standartnye_zapchasti": {"name": "Стандартные запчасти", "price": 0, "item_id": "l0og1"},
+  "standartnye_instrumenty": {"name": "Стандартные инструменты", "price": 0, "item_id": "qjqw9"},
+  "nestabilnaya_batareya": {"name": "Нестабильная аномальная батарея", "price": 0, "item_id": "3gqkg"},
+  "premium_30": {"name": "Премиум на 30 дней", "price": 0, "item_id": "2opw0"},
+  "premium_90": {"name": "Премиум на 90 дней", "price": 0, "item_id": "3gv2z"},
+  "premium_180": {"name": "Премиум на 180 дней", "price": 0, "item_id": "7l9d3"},
+  "peregruzka": {"name": "Перегрузка", "price": 0, "item_id": null},
+  "katalizator": {"name": "Катализатор", "price": 4000, "item_id": "96z7y"}
+}
