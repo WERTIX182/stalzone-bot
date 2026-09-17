@@ -1,0 +1,22 @@
+# Secrets - never commit these
+credentials.json
+.env
+
+# Local databases
+*.db
+
+# Runtime-generated state (created by the bot itself)
+resources.json
+price_news.json
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
