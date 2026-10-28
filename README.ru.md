@@ -25,7 +25,7 @@ English readme: [README.md](README.md)
 
 ## Стек
 
-Python 3.10+, discord.py, OpenCV, NumPy, pytesseract (Tesseract OCR), aiohttp, requests, gspread, SQLite.
+Python 3.10+, discord.py, OpenCV, NumPy, pytesseract (Tesseract OCR), aiohttp, requests, gspread, SQLite, Docker, GitHub Actions (линтер + сборка образа).
 
 ## Установка
 
@@ -39,25 +39,31 @@ Python 3.10+, discord.py, OpenCV, NumPy, pytesseract (Tesseract OCR), aiohttp, r
    - New Application -> Bot -> скопируй **токен**;
    - включи **Message Content Intent** (Bot -> Privileged Gateway Intents);
    - пригласи бота с правами на чтение/отправку сообщений, вложения и **Manage Channels** (нужно для тикетов).
-5. Заполни настройки в начале `bot.py` (см. ниже).
+5. Скопируй `.env.example` в `.env` и впиши `DISCORD_TOKEN` (и остальные секреты, см. ниже). Прочие настройки - константы в начале `bot.py`.
 6. Запуск: `python bot.py` - в консоли должно появиться, что бот запущен.
 
 ## Настройка
 
-Все настройки - константы в начале `bot.py`. Заглушки, которые нужно заполнить:
+Секреты и настройки развёртывания читаются из переменных окружения (или из локального файла `.env`, см. `.env.example`). Не вписывай токены в `bot.py` и не коммить `.env`.
+
+| Переменная окружения | Что вписать | Обязательно? |
+| --- | --- | --- |
+| `DISCORD_TOKEN` | Токен Discord-бота | Да |
+| `GUILD_ID` | ID сервера (ПКМ по серверу -> «Копировать ID сервера»; слэш-команды появятся мгновенно) | Очень желательно |
+| `EXBO_CLIENT_ID` / `EXBO_CLIENT_SECRET` | Из заявки EXBO (Bot Access), для боевого API аукциона | Когда одобрят |
+| `EXBO_API_TOKEN` | Демо-токен из документации EXBO; используется, только если client ID/secret пустые | Для демо-режима |
+| `EXBO_API_BASE` | Сменить на `https://eapi.stalzone.net` для боя | Когда одобрят |
+| `TESSERACT_CMD` | Путь к бинарнику tesseract (стандартный путь на Windows находится сам; на Linux/в Docker берётся из PATH) | Если путь другой |
+| `DATA_DIR` | Папка, куда бот пишет файлы (прайсы, иконки, базы). По умолчанию папка проекта; в Docker - `/data` | По желанию |
+
+Остальные настройки - константы в начале `bot.py`:
 
 | Настройка | Что вписать | Обязательно? |
 | --- | --- | --- |
-| `TOKEN` | Токен Discord-бота (заменить `YOUR_DISCORD_BOT_TOKEN_HERE`) | Да |
-| `GUILD_ID` | ID сервера (ПКМ по серверу -> «Копировать ID сервера»; слэш-команды появятся мгновенно) | Очень желательно |
-| `CLIENT_ID` / `CLIENT_SECRET` | Из заявки EXBO (Bot Access), для боевого API аукциона | Когда одобрят |
-| `API_TOKEN` | Демо-токен из документации EXBO (заменить `YOUR_EXBO_API_TOKEN_HERE`); используется, только если CLIENT_ID/SECRET пустые | Для демо-режима |
-| `API_BASE` | Сменить на `https://eapi.stalzone.net` для боя | Когда одобрят |
 | `TICKET_MESSAGE` | Заготовленное сообщение, которое бот шлёт в каждый новый тикет | По желанию |
 | `FAQ_CHANNEL_ID` | ID канала с частыми вопросами (включает кнопку FAQ в тикетах) | По желанию |
 | `TICKET_ADMIN_ROLE` | Имя роли для закрытия тикетов (пусто = право «Управлять каналами») | По желанию |
 | `PRICE_NEWS_CHANNEL_ID`, `CHAN_*_ID` | ID каналов для объявлений и привязки слэш-команд (0 = выкл) | По желанию |
-| `TESSERACT_CMD` | Путь к tesseract.exe (по умолчанию стандартный; на Linux/Mac - `None`) | Если путь другой |
 | `AUTO_UPDATE_HOURS` / `SHEETS_SYNC_HOURS` | Интервалы автообновления аукциона / синка таблицы (0 = выкл) | По желанию |
 | `MATCH_THRESHOLD` | Точность распознавания: 0.85 по умолчанию; 0.80, если не находит, 0.90 при ложных срабатываниях | Только при проблемах |
 
@@ -79,6 +85,16 @@ Python 3.10+, discord.py, OpenCV, NumPy, pytesseract (Tesseract OCR), aiohttp, r
 
 - **`resources.json`** и **`price_news.json`** - создаются сами при работе (синк таблицы / объявления).
 - **`templates/`** - эталонные иконки для распознавания. Нарежь иконки предметов с именами файлов = ключи прайса (`katalizator.png`, ...) или дай боту скачать официальные иконки автоматически при синке таблицы. Подпапки - несколько вариантов иконки одного предмета.
+
+## Запуск в Docker
+
+```
+cp .env.example .env        # впиши DISCORD_TOKEN и остальные значения
+mkdir -p data               # положи сюда credentials.json (ключ Google Sheets), если нужен синк таблицы
+docker compose up -d --build
+```
+
+В образе уже есть Python и Tesseract. Всё, что бот пишет (прайсы, скачанные иконки, `Base.db`, состояние объявлений), хранится в смонтированной папке `./data` и переживает перезапуски и пересборку образа; стандартные прайсы копируются туда при первом запуске. GitHub Actions проверяет код линтером и собирает образ при каждом push.
 
 ## Примеры использования
 
@@ -111,13 +127,17 @@ Python 3.10+, discord.py, OpenCV, NumPy, pytesseract (Tesseract OCR), aiohttp, r
 
 ```
 stalzone-bot/
-├── bot.py              - весь бот (все настройки - в начале файла)
+├── bot.py              - весь бот (несекретные настройки - в начале файла)
 ├── prices.json         - прайс предметов (сканер + аукцион)
 ├── boosts.json         - прайс бустов (+ синонимы)
 ├── reputation.json     - цены за 1к репутации Арсена
 ├── upgrades.json       - цены прокачки навыков убежища
 ├── item_index.json     - индекс предметов игры (для авто-иконок)
 ├── requirements.txt    - зависимости
+├── .env.example        - шаблон секретов (скопировать в .env)
+├── Dockerfile          - образ контейнера (Python + Tesseract)
+├── docker-compose.yml  - запуск одной командой с постоянной папкой ./data
+├── .github/workflows/  - CI: линтер + сборка Docker-образа
 └── templates/          - эталонные иконки для распознавания
 ```
 

@@ -1,6 +1,8 @@
 discord.py>=2.3
-opencv-python>=4.8
+aiohttp>=3.9
+opencv-python-headless>=4.8
 numpy>=1.24
 pytesseract>=0.3.10
 gspread>=6.0
 requests>=2.31
+python-dotenv>=1.0

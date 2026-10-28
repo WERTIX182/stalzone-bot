@@ -1,0 +1,9 @@
+services:
+  stalzone-bot:
+    build: .
+    container_name: stalzone-bot
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      # prices, templates, Base.db and credentials.json live here (created on first run)
+      - ./data:/data

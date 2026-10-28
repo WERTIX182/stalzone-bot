@@ -25,7 +25,7 @@ Russian readme: [README.ru.md](README.ru.md)
 
 ## Stack
 
-Python 3.10+, discord.py, OpenCV, NumPy, pytesseract (Tesseract OCR), aiohttp, requests, gspread, SQLite.
+Python 3.10+, discord.py, OpenCV, NumPy, pytesseract (Tesseract OCR), aiohttp, requests, gspread, SQLite, Docker, GitHub Actions (lint + image build).
 
 ## Installation
 
@@ -39,25 +39,31 @@ Python 3.10+, discord.py, OpenCV, NumPy, pytesseract (Tesseract OCR), aiohttp, r
    - New Application -> Bot -> copy the **token**;
    - enable **Message Content Intent** (Bot -> Privileged Gateway Intents);
    - invite the bot with permissions to read/send messages, attach files and **Manage Channels** (required for tickets).
-5. Fill in the settings at the top of `bot.py` (see below).
+5. Copy `.env.example` to `.env` and fill in `DISCORD_TOKEN` (and the other secrets, see below). Other settings are constants at the top of `bot.py`.
 6. Run: `python bot.py` - the console should print that the bot is online.
 
 ## Configuration
 
-All settings are constants at the top of `bot.py`. Placeholders to fill in:
+Secrets and deployment settings are read from environment variables (or a local `.env` file, see `.env.example`). Never put tokens into `bot.py` and never commit `.env`.
+
+| Environment variable | What to put | Required |
+| --- | --- | --- |
+| `DISCORD_TOKEN` | Discord bot token | Yes |
+| `GUILD_ID` | Your server ID (right-click the server -> Copy Server ID; slash commands appear instantly) | Recommended |
+| `EXBO_CLIENT_ID` / `EXBO_CLIENT_SECRET` | From the EXBO application (Bot Access), for the production auction API | When approved |
+| `EXBO_API_TOKEN` | Demo token from the EXBO docs; used only when the client ID/secret are empty | For demo mode |
+| `EXBO_API_BASE` | Switch to `https://eapi.stalzone.net` for production | When approved |
+| `TESSERACT_CMD` | Path to the tesseract binary (Windows default install path is detected automatically; on Linux/Docker it is taken from PATH) | If path differs |
+| `DATA_DIR` | Folder the bot writes to (prices, templates, databases). Defaults to the project folder; Docker uses `/data` | Optional |
+
+The remaining settings are constants at the top of `bot.py`:
 
 | Setting | What to put | Required |
 | --- | --- | --- |
-| `TOKEN` | Discord bot token (replace `YOUR_DISCORD_BOT_TOKEN_HERE`) | Yes |
-| `GUILD_ID` | Your server ID (right-click the server -> Copy Server ID; slash commands appear instantly) | Recommended |
-| `CLIENT_ID` / `CLIENT_SECRET` | From the EXBO application (Bot Access), for the production auction API | When approved |
-| `API_TOKEN` | Demo token from the EXBO docs (replace `YOUR_EXBO_API_TOKEN_HERE`); used only when CLIENT_ID/SECRET are empty | For demo mode |
-| `API_BASE` | Switch to `https://eapi.stalzone.net` for production | When approved |
 | `TICKET_MESSAGE` | Canned message sent into every new boost ticket | Optional |
 | `FAQ_CHANNEL_ID` | FAQ channel ID (enables the FAQ button on tickets) | Optional |
 | `TICKET_ADMIN_ROLE` | Role name allowed to close tickets (empty = "Manage Channels" permission) | Optional |
 | `PRICE_NEWS_CHANNEL_ID`, `CHAN_*_ID` | Channel IDs for announcements and per-service slash command binding (0 = disabled) | Optional |
-| `TESSERACT_CMD` | Path to tesseract.exe (default is the standard install path; `None` on Linux/Mac) | If path differs |
 | `AUTO_UPDATE_HOURS` / `SHEETS_SYNC_HOURS` | Auction update / sheet sync intervals (0 = off) | Optional |
 | `MATCH_THRESHOLD` | Recognition accuracy: 0.85 default; 0.80 if items are missed, 0.90 on false positives | Only if needed |
 
@@ -79,6 +85,16 @@ All settings are constants at the top of `bot.py`. Placeholders to fill in:
 
 - **`resources.json`** and **`price_news.json`** - created automatically at runtime (sheet sync / announcements).
 - **`templates/`** - reference icons for recognition. Fill it with item icons named after the price book keys (`katalizator.png`, ...), or let the bot download official icons automatically on sheet sync. Subfolders hold several variants of one icon.
+
+## Run with Docker
+
+```
+cp .env.example .env        # fill in DISCORD_TOKEN and the other values
+mkdir -p data               # put credentials.json (Google Sheets key) here if you use sheet sync
+docker compose up -d --build
+```
+
+The image bundles Python and Tesseract. Everything the bot writes (prices, downloaded icons, `Base.db`, announcement state) lives in the mounted `./data` folder, so it survives restarts and image rebuilds; default price books are copied there on first start. GitHub Actions lints the code and builds the image on every push.
 
 ## Usage examples
 
@@ -111,13 +127,17 @@ Admin-only:
 
 ```
 stalzone-bot/
-├── bot.py              - the whole bot (all settings at the top of the file)
+├── bot.py              - the whole bot (non-secret settings at the top of the file)
 ├── prices.json         - item price book (scanner + auction)
 ├── boosts.json         - boost price book (+ aliases)
 ├── reputation.json     - prices per 1k of Arsen reputation
 ├── upgrades.json       - shelter skill upgrade prices
 ├── item_index.json     - game item index (for auto icon download)
 ├── requirements.txt    - dependencies
+├── .env.example        - template for secrets (copy to .env)
+├── Dockerfile          - container image (Python + Tesseract)
+├── docker-compose.yml  - one-command run with a persistent ./data volume
+├── .github/workflows/  - CI: lint + Docker build
 └── templates/          - reference icons for recognition
 ```
 

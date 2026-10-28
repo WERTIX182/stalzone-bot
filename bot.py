@@ -6,10 +6,12 @@ counts quantities (number of matches and/or the stack digit in the icon
 corner via OCR) and outputs a list: name / quantity / price / total.
 """
 
-import io
+import asyncio
 import json
 import os
 import re
+import shutil
+import sys
 
 import aiohttp
 import cv2
@@ -20,20 +22,31 @@ from datetime import datetime
 from discord import app_commands
 from discord.ext import commands, tasks
 
+try:  # optional: load secrets from a local .env file
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
+
 # ----------------------------- SETTINGS --------------------------------------
 
-TOKEN = "YOUR_DISCORD_BOT_TOKEN_HERE"     # token from the Discord Developer Portal
+# Secrets are read from environment variables (or a local .env file, see .env.example).
+# Never hard-code them here and never commit them.
+TOKEN = os.getenv("DISCORD_TOKEN", "")   # token from the Discord Developer Portal
 COMMAND_PREFIX = "!"
 TRIGGER_COMMANDS = ("скан", "scan", "проверка")
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-TEMPLATES_DIR = os.path.join(BASE_DIR, "templates")   # reference icons
-PRICES_FILE = os.path.join(BASE_DIR, "prices.json")   # item price book
-BOOSTS_FILE = os.path.join(BASE_DIR, "boosts.json")   # boost price book
-RESOURCES_FILE = os.path.join(BASE_DIR, "resources.json")     # resource prices (from the sheet)
-ITEM_INDEX_FILE = os.path.join(BASE_DIR, "item_index.json")   # game item index (id by name)
-REPUTATION_FILE = os.path.join(BASE_DIR, "reputation.json")   # prices per 1k of Arsen reputation
-UPGRADES_FILE = os.path.join(BASE_DIR, "upgrades.json")       # shelter skill upgrade prices
+# Folder for files the bot reads AND writes (prices, templates, databases, price news).
+# Defaults to the project folder; in Docker it points to a mounted volume (DATA_DIR=/data).
+DATA_DIR = os.getenv("DATA_DIR", BASE_DIR)
+TEMPLATES_DIR = os.path.join(DATA_DIR, "templates")   # reference icons
+PRICES_FILE = os.path.join(DATA_DIR, "prices.json")   # item price book
+BOOSTS_FILE = os.path.join(DATA_DIR, "boosts.json")   # boost price book
+RESOURCES_FILE = os.path.join(DATA_DIR, "resources.json")     # resource prices (from the sheet)
+ITEM_INDEX_FILE = os.path.join(BASE_DIR, "item_index.json")   # game item index (id by name), read-only
+REPUTATION_FILE = os.path.join(DATA_DIR, "reputation.json")   # prices per 1k of Arsen reputation
+UPGRADES_FILE = os.path.join(DATA_DIR, "upgrades.json")       # shelter skill upgrade prices
 
 UPG_MAX_LEVEL = 5               # maximum shelter skill level
 TICKET_ADMIN_ROLE = ""          # role name for ticket management (empty = "Manage Channels" permission)
@@ -46,7 +59,7 @@ PULP_PRICES = {
 
 # ------------------------------ BOOSTS ---------------------------------------
 
-GUILD_ID = 0                    # your server ID - slash commands appear instantly.
+GUILD_ID = int(os.getenv("GUILD_ID", "0") or 0)   # your server ID - slash commands appear instantly.
                                 # 0 = global registration (may take up to an hour).
 TICKET_PREFIX = "буст-"         # ticket channel names start with this prefix
 TICKET_CATEGORY = "Бусты"       # category the tickets are placed into
@@ -70,7 +83,7 @@ CHAN_CALC_ID = 0                # "resource calculator" channel: screenshots the
                                 # at buyout rates; the /calc command is bound to it too
 # Announcement state file (last post ID + accumulated changes).
 # Created automatically on first run - do not edit.
-PRICE_NEWS_FILE = os.path.join(BASE_DIR, "price_news.json")
+PRICE_NEWS_FILE = os.path.join(DATA_DIR, "price_news.json")
 
 COMMISSION_PER_USE = 0          # Referrals: blogger commission per 1 promo code use (0 = off)
 
@@ -82,8 +95,8 @@ TICKET_MESSAGE = """
 
 # ----------------------- PROMO CODES AND GOOGLE SHEET ------------------------
 
-PROMO_DB_FILE = os.path.join(BASE_DIR, "Base.db")          # SQLite database with promo codes
-GOOGLE_CREDS_FILE = os.path.join(BASE_DIR, "credentials.json")  # service account key
+PROMO_DB_FILE = os.path.join(DATA_DIR, "Base.db")          # SQLite database with promo codes
+GOOGLE_CREDS_FILE = os.path.join(DATA_DIR, "credentials.json")  # service account key
 GOOGLE_SHEET_NAME = "ДЛЯ ЛЮБИМЫХ ПРОГРАММИСТОВ"             # spreadsheet name (do not change)
 SHEETS_SYNC_HOURS = 6                   # price auto-sync from the sheet (0 = off)
 
@@ -91,9 +104,12 @@ MATCH_THRESHOLD = 0.85      # template match threshold (0..1); lower to 0.8 if i
 NMS_OVERLAP = 0.3           # allowed overlap for duplicate suppression
 USE_OCR = True              # OCR the stack digit in the cell corner (requires Tesseract)
 
-# Path to Tesseract on Windows (default install location).
-# If you installed it elsewhere - adjust the path. On Linux/Mac set it to None.
-TESSERACT_CMD = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
+# Path to the Tesseract binary. Windows: default install location is used if it exists.
+# Linux/Mac/Docker: None (tesseract must be on PATH). Override with the TESSERACT_CMD env var.
+_WIN_TESSERACT = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
+TESSERACT_CMD = os.getenv("TESSERACT_CMD") or (
+    _WIN_TESSERACT if os.name == "nt" and os.path.exists(_WIN_TESSERACT) else None
+)
 
 # ------------------------ STALZONE API (auction) -----------------------------
 
@@ -104,13 +120,25 @@ AUTO_UPDATE_HOURS = 3               # how often to auto-update prices (0 = off)
 # PRODUCTION mode: after EXBO approves your application, set API_BASE to prod
 # and fill in CLIENT_ID / CLIENT_SECRET from the application
 # (or a ready APP ACCESS TOKEN in API_TOKEN).
-API_BASE = "https://dapi.stalzone.com"        # prod: "https://eapi.stalzone.net"
+API_BASE = os.getenv("EXBO_API_BASE", "https://dapi.stalzone.com")   # prod: "https://eapi.stalzone.net"
 OAUTH_TOKEN_URL = "https://exbo.net/oauth/token"
-CLIENT_ID = ""                        # from the EXBO application (Bot Access)
-CLIENT_SECRET = ""                    # from the EXBO application (Bot Access)
-API_TOKEN = "YOUR_EXBO_API_TOKEN_HERE"  # demo token from the docs (test data only!)
+CLIENT_ID = os.getenv("EXBO_CLIENT_ID", "")          # from the EXBO application (Bot Access)
+CLIENT_SECRET = os.getenv("EXBO_CLIENT_SECRET", "")  # from the EXBO application (Bot Access)
+API_TOKEN = os.getenv("EXBO_API_TOKEN", "")          # demo token from the docs (test data only!)
 
 # -----------------------------------------------------------------------------
+
+def seed_data_dir() -> None:
+    """Copy the shipped defaults into DATA_DIR if it is a different, empty-ish folder."""
+    if os.path.abspath(DATA_DIR) == os.path.abspath(BASE_DIR):
+        return
+    os.makedirs(DATA_DIR, exist_ok=True)
+    for name in ("prices.json", "boosts.json", "reputation.json", "upgrades.json"):
+        dst = os.path.join(DATA_DIR, name)
+        if not os.path.exists(dst):
+            shutil.copy2(os.path.join(BASE_DIR, name), dst)
+    os.makedirs(TEMPLATES_DIR, exist_ok=True)
+
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -434,7 +462,6 @@ async def auto_sync_sheets():
     if SHEETS_SYNC_HOURS <= 0:
         return
     try:
-        import asyncio
         report = await asyncio.to_thread(sync_prices_from_sheets)
         print("[таблица] " + report.replace("\n", "; "))
         print("[объявления] " + await post_price_news())
@@ -1079,7 +1106,6 @@ class BroadcastConfirm(discord.ui.View):
         for child in self.children:
             child.disabled = True
         await it.response.edit_message(content="📨 Рассылка запущена...", view=self)
-        import asyncio
         sent, failed = 0, 0
         for member in self.targets:
             try:
@@ -1534,7 +1560,7 @@ async def list_boosts(ctx):
     # Discord 2000-char limit - split into chunks
     chunk = []
     for line in lines:
-        if sum(len(l) + 1 for l in chunk) + len(line) > 1900:
+        if sum(len(part) + 1 for part in chunk) + len(line) > 1900:
             await ctx.send("\n".join(chunk))
             chunk = []
         chunk.append(line)
@@ -1699,7 +1725,6 @@ async def promo_remove(ctx, code: str):
 @commands.has_permissions(administrator=True)
 async def sync_prices_cmd(ctx):
     """Sync boost prices with the Google Sheet: !синк_цен"""
-    import asyncio
     async with ctx.typing():
         try:
             report = await asyncio.to_thread(sync_prices_from_sheets)
@@ -1936,4 +1961,8 @@ async def list_templates(ctx):
 
 
 if __name__ == "__main__":
+    if not TOKEN or TOKEN.startswith("YOUR_"):
+        sys.exit("DISCORD_TOKEN is not set. Copy .env.example to .env and put your bot token there "
+                 "(or export DISCORD_TOKEN).")
+    seed_data_dir()
     bot.run(TOKEN)
