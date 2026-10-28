@@ -1,0 +1,9 @@
+.git
+.github
+.env
+data/
+__pycache__/
+*.py[cod]
+*.db
+credentials.json
+linkedin_post.txt
