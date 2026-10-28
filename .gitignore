@@ -20,3 +20,7 @@ venv/
 .vscode/
 .DS_Store
 Thumbs.db
+
+# Docker volume with runtime data
+data/
+.ruff_cache/
